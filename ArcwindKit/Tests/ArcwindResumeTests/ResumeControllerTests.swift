@@ -32,19 +32,8 @@ final class ResumeControllerTests: XCTestCase {
         self.notificationCenter = nil
     }
     
-    func testGetResume() {
-        let expectation = self.expectation(description: #function)
-        
-        self.controller.getResume { result in
-            switch result {
-            case .success(let resume):
-                XCTAssertEqual(self.controller.resume, resume)
-            case .failure:
-                XCTFail()
-            }
-            expectation.fulfill()
-        }
-        
-        self.wait(for: [expectation], timeout: 5.0)
+    func testGetResume() async throws {
+        let resume = try await self.controller.getResume()
+        XCTAssertEqual(self.controller.resume, resume)
     }
 }

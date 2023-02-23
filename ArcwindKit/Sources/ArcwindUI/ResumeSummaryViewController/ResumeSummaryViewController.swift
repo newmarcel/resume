@@ -59,9 +59,13 @@ public final class ResumeSummaryViewController: UICollectionViewController {
         
         // Enable pull-to-refresh
         self.collectionView.refreshControl = UIRefreshControl(frame: .zero, primaryAction: UIAction { [weak self] _ in
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                self?.resumeDocumentViewController?.resumeController.getResume { _ in
+            Task {
+                do {
+                    _ = try await self?.resumeDocumentViewController?.resumeController.getResume()
+                    try await Task.sleep(for: .seconds(1.0))
                     self?.collectionView.refreshControl?.endRefreshing()
+                } catch {
+                    print("Failed to fetch resume", error)
                 }
             }
         })

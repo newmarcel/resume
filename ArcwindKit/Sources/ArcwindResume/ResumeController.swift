@@ -15,13 +15,7 @@ public final class ResumeController {
     
     // MARK: - Properties
     
-    public private(set) var resume: Resume? {
-        didSet {
-            DispatchQueue.main.async {
-                self.notificationCenter.post(name: Self.resumeDidChangeNotification, object: self.resume)
-            }
-        }
-    }
+    public private(set) var resume: Resume?
     
     public let urlSession: URLSession
     public let notificationCenter: NotificationCenter
@@ -33,7 +27,9 @@ public final class ResumeController {
         self.notificationCenter = notificationCenter
         
         if performInitialRequest {
-            self.getResume(completion: nil)
+            Task {
+                _ = try? await self.getResume()
+            }
         }
     }
     
@@ -43,37 +39,32 @@ public final class ResumeController {
     
     // MARK: - Request
     
-    /// Requests a resume.
+    /// Requests a resume
     /// - Note: The most recent successfully requested resume is available via the `resume` property.
-    /// - Parameter completion: A completion handler with either a resume or an error
-    public func getResume(completion: ((Result<Resume, Error>) -> Void)?) {
-        let request = URLRequest(url: Configuration.resumeURL)
-        let task = self.urlSession.dataTask(with: request) { data, response, error in
-            DispatchQueue.main.async {
-                if let error {
-                    completion?(.failure(error))
-                    return
-                }
-                if let data {
-                    let decoder = JSONDecoder()
-                    
-                    do {
-                        let resume = try decoder.decode(Resume.self, from: data)
-                        
-                        // Populate the resume property for easy access
-                        self.resume = resume
-                        
-                        completion?(.success(resume))
-                    } catch {
-                        completion?(.failure(error))
-                    }
-                }
-            }
+    /// - Returns: A resume
+    public func getResume() async throws -> Resume {
+        let (data, _) = try await self.urlSession.data(from: Configuration.resumeURL)
+        
+        let decoder = JSONDecoder()
+        let resume = try decoder.decode(Resume.self, from: data)
+        
+        // Cache the resume
+        Task {
+            await self.updateResume(resume)
         }
-        task.resume()
+        
+        return resume
     }
     
     // MARK: -
+}
+
+private extension ResumeController {
+    @MainActor
+    func updateResume(_ resume: Resume?) async {
+        self.resume = resume
+        self.notificationCenter.post(name: Self.resumeDidChangeNotification, object: resume)
+    }
 }
 
 private extension ResumeController {
